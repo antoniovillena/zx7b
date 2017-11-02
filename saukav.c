@@ -304,7 +304,6 @@ int main(int argc, char *argv[]) {
   max_len= off_bits==8 ? 256 : 65536;
   eliasbits= type&1 ? elias_gamma_bits2 : elias_gamma_bits1;
   eliaswrite= type&1 ? write_elias_gamma2 : write_elias_gamma1;
- printf("%d %d %d\n", i, type, off_bits);
   for (fil= 2; fil < argc; fil++) {
     ifp= fopen(argv[fil], "rb");
     fseek(ifp, 0L, SEEK_END);
@@ -330,7 +329,6 @@ int main(int argc, char *argv[]) {
         input_data[input_size-1-i]= j;
     optimize();
     compress();
-//    printf("%d, %d, %d, %d\n", output_size, off_bits, max_offset, max_len);
     if (back)
       for ( i= 0; i<output_size>>1; i++ )
         j= output_data[i],
@@ -342,108 +340,337 @@ int main(int argc, char *argv[]) {
     fclose(ofp);
     printf("File %s compressed from %s (%d to %d bytes)\n", output_name, argv[fil], (int) input_size, (int) output_size);
   }
-
   ofp= fopen("d.asm", "wb+");
   if( !ofp )
     printf("\nCannot create d.asm file"),
     exit(-1);
-  fprintf(ofp, "; %c%d [%d]= %d bytes\n", back ? 'b' : 'f', speed, off_bits, type);
-
-  if( type&1 || type<2 )
-    fprintf(ofp, "sauk:   ld      a, 128\n"
-               "copyby: ld%c\n", back?'d':'i');
-  else           
-    fprintf(ofp, "sauk:   ld      bc, 32768\n"
-               "        ld      a, b\n"
-               "copyby: inc     c\n"
-               "        ld%c\n", back?'d':'i');
-  fprintf(ofp, "mainlo: call    getbit\n"
-               "        jr      nc, copyby\n");
-  if( type<2 ){
-    if( type&1 )
-      fprintf(ofp, "        ld      bc, 1\n"
-               "lenval: call    getbit\n"
-               "        rl      c\n"
-               "        ret     c\n"
-               "        call    getbit\n"
-               "        jr      nc, lenval\n");
+  fprintf(ofp, "; %c%d o%d g%d\n", back ? 'b' : 'f', speed, off_bits, type&1);
+  if( speed<2 || type<2 ){
+    if( type&1 || type<2 )
+      fprintf(ofp,     "sauk:   ld      a, 128\n"
+                       "copyby: ld%c\n", back?'d':'i');
+    else           
+      fprintf(ofp,     "sauk:   ld      bc, 32768\n"
+                       "        ld      a, b\n"
+                       "copyby: inc     c\n"
+                       "        ld%c\n", back?'d':'i');
+    if( speed )
+      fprintf(ofp,     "mainlo: add     a, a\n"
+                       "        call    z, getbit\n");
     else
-      fprintf(ofp, "        ld      bc, 0\n"
-               "lenval: call    nc, getbit\n"
-               "        rl      c\n"
-               "        call    getbit\n"
-               "        jr      nc, lenval\n"
-               "        inc     c\n"
-               "        ret     z\n");
-    fprintf(ofp, "        push    hl\n"
-               "        ld      l, (hl)\n"
-               "        ld      h, b\n");
-    if( back )
-      fprintf(ofp, "        adc     hl, de\n"
-               "        lddr\n"
-               "        pop     hl\n"
-               "        dec     hl\n"
-               "        jr      mainlo\n");
+      fprintf(ofp,     "mainlo: call    getbit\n");
+    fprintf(ofp,       "        jr      nc, copyby\n");
+    if( type<2 ){
+      if( type&1 ){
+        fprintf(ofp,   "        ld      bc, 1\n");
+        if( speed )
+          fprintf(ofp, "lenval: add     a, a\n"
+                       "        call    z, getbit\n");
+        else
+          fprintf(ofp, "lenval: call    getbit\n");
+        fprintf(ofp,   "        rl      c\n"
+                       "        ret     c\n");
+        if( speed )
+          fprintf(ofp, "        add     a, a\n"
+                       "        call    z, getbit\n");
+        else
+          fprintf(ofp, "        call    getbit\n");
+        fprintf(ofp,   "        jr      nc, lenval\n");
+      }
+      else{
+        fprintf(ofp,   "        ld      bc, 0\n");
+        if( speed )
+          fprintf(ofp, "        defb    $30\n"
+                       "lenval: add     a, a\n"
+                       "        call    z, getbit\n");
+        else
+          fprintf(ofp, "lenval: call    nc, getbit\n");
+        fprintf(ofp,   "        rl      c\n");
+        if( speed )
+          fprintf(ofp, "        add     a, a\n"
+                       "        call    z, getbit\n");
+        else
+          fprintf(ofp, "        call    getbit\n");
+        fprintf(ofp,   "        jr      nc, lenval\n"
+                       "        inc     c\n"
+                       "        ret     z\n");
+      }
+      fprintf(ofp,     "        push    hl\n"
+                       "        ld      l, (hl)\n"
+                       "        ld      h, b\n");
+      if( back )
+        fprintf(ofp,   "        adc     hl, de\n"
+                       "        lddr\n"
+                       "        pop     hl\n"
+                       "        dec     hl\n"
+                       "        jr      mainlo\n");
+      else
+        fprintf(ofp,   "        push    de\n"
+                       "        ex      de, hl\n"
+                       "        sbc     hl, de\n"
+                       "        pop     de\n"
+                       "        ldir\n"
+                       "        pop     hl\n"
+                       "        inc     hl\n"
+                       "        jr      mainlo\n");
+    }
+    else{
+      if( type&1 ){
+        fprintf(ofp,   "        ld      bc, 1\n"
+                       "        push    de\n"
+                       "        ld      d, b\n");
+        if( speed )
+          fprintf(ofp, "lenval: add     a, a\n"
+                       "        call    z, getbit\n");
+        else
+          fprintf(ofp, "lenval: call    getbit\n");
+        fprintf(ofp,   "        rl      c\n"
+                       "        jr      z, exitdz\n"
+                       "        rl      b\n");
+        if( speed )
+          fprintf(ofp, "        add     a, a\n"
+                       "        call    z, getbit\n");
+        else
+          fprintf(ofp, "        call    getbit\n");
+        fprintf(ofp,   "        jr      nc, lenval\n");
+      }
+      else{
+        fprintf(ofp,   "        push    de\n"
+                       "        ld      d, c\n");
+        if( speed )
+          fprintf(ofp, "        defb    $30\n"
+                       "lenval: add     a, a\n"
+                       "        call    z, getbit\n");
+        else
+          fprintf(ofp, "lenval: call    nc, getbit\n");
+        fprintf(ofp,   "        rl      c\n"
+                       "        rl      b\n");
+        if( speed )
+          fprintf(ofp, "        add     a, a\n"
+                       "        call    z, getbit\n");
+        else
+          fprintf(ofp, "        call    getbit\n");
+        fprintf(ofp,   "        jr      nc, lenval\n"
+                       "        inc     c\n"
+                       "        jr      z, exitdz\n");
+      }
+      fprintf(ofp,     "        ld      e, (hl)\n"
+                       "        %sc     hl\n"
+                       "        defb    203, 51\n" // sll e
+                       "        jr      nc, offend\n"
+                       "        ld      d, %d\n", back?"de":"in", 1<<(17-type>>1));
+      if( speed )
+        fprintf(ofp,   "nexbit: add     a, a\n"
+                       "        call    z, getbit\n");
+      else
+        fprintf(ofp,   "nexbit: call    getbit\n");
+      fprintf(ofp,     "        rl      d\n"
+                       "        jr      nc, nexbit\n"
+                       "        inc     d\n"
+                       "        srl     d\n"
+                       "offend: rr      e\n"
+                       "        ex      (sp), hl\n");
+      if( back )
+        fprintf(ofp,   "        ex      de, hl\n"
+                       "        adc     hl, de\n"
+                       "        lddr\n");
+      else
+        fprintf(ofp,   "        push    hl\n"
+                       "        sbc     hl, de\n"
+                       "        pop     de\n"
+                       "        ldir\n");
+      fprintf(ofp,     "exitdz: pop     hl\n"
+                       "        jr      nc, mainlo\n");
+    }
+    if( speed )
+      fprintf(ofp,     "getbit: ld      a, (hl)\n");
     else
-      fprintf(ofp, "        push    de\n"
-               "        ex      de, hl\n"
-               "        sbc     hl, de\n"
-               "        pop     de\n"
-               "        ldir\n"
-               "        pop     hl\n"
-               "        inc     hl\n"
-               "        jr      mainlo\n");
+      fprintf(ofp,     "getbit: add     a, a\n"
+                       "        ret     nz\n"
+                       "        ld      a, (hl)\n");
+    fprintf(ofp,       "        %sc     hl\n"
+                       "        adc     a, a\n"
+                       "        ret\n", back?"de":"in");
   }
   else{
+    fprintf(ofp,       "      macro getbitm\n"
+                       "        add     a, a\n");
+    if( speed==2 )
+      fprintf(ofp,     "        call    z, getbit\n");
+    else
+      fprintf(ofp,     "        jp      nz, .gb1\n"
+                       "        ld      a, (hl)\n"
+                       "        %sc     hl\n"
+                       "        adc     a, a\n"
+                       ".gb1\n", back?"de":"in");
+    fprintf(ofp,       "      endm\n"
+                       "sauk:   ld      a, 128\n"
+                       "copbye: ld%c\n"
+                       "        add     a, a\n"
+                       "        jr      z, mailao\n"
+                       "        jr      c, maicoo\n"
+                       "copbyo: ld%c\n"
+                       "        add     a, a\n", back?'d':'i', back?'d':'i');
+    if( speed>3 )
+      fprintf(ofp,     "        jr      c, maicoe\n"
+                       "        ld%c\n"
+                       "        add     a, a\n"
+                       "        jr      z, mailao\n"
+                       "        jr      c, maicoo\n"
+                       "        ld%c\n"
+                       "        add     a, a\n", back?'d':'i', back?'d':'i');
+    fprintf(ofp,       "        jr      nc, copbye\n");
     if( type&1 )
-      fprintf(ofp, "        ld      bc, 1\n"
-               "        push    de\n"
-               "        ld      d, b\n"
-               "lenval: call    getbit\n"
-               "        rl      c\n"
-               "        jr      z, exitdz\n"
-               "        rl      b\n"
-               "        call    getbit\n"
-               "        jr      nc, lenval\n");
+      fprintf(ofp,     "maicoe: ld      bc, 1\n"
+                       "maisie: push    de\n"
+                       "        ld      d, b\n"
+                       "levale: getbitm\n"
+                       "        rl      c\n"
+                       "        jr      z, exitdz\n"
+                       "        rl      b\n"
+                       "        add     a, a\n"
+                       "        jr      nc, levale\n"
+                       "        ld      e, (hl)\n", speed==2 ? 'r' : 'p');
     else
-      fprintf(ofp, "        push    de\n"
-               "        ld      d, c\n"
-               "lenval: call    nc, getbit\n"
-               "        rl      c\n"
-               "        rl      b\n"
-               "        call    getbit\n"
-               "        jr      nc, lenval\n"
-               "        inc     c\n"
-               "        jr      z, exitdz\n");
-    fprintf(ofp, "        ld      e, (hl)\n"
-               "        %sc     hl\n"
-               "        sll     e\n"
-               "        jr      nc, offend\n"
-               "        ld      d, %d\n"
-               "nexbit: call    getbit\n"
-               "        rl      d\n"
-               "        jr      nc, nexbit\n"
-               "        inc     d\n"
-               "        srl     d\n"
-               "offend: rr      e\n"
-               "        ex      (sp), hl\n", back?"de":"in", 1<<(17-type>>1));
+      fprintf(ofp,     "maicoe: ld      bc, 2\n"
+                       "maisie: push    de\n"
+                       "        ld      d, b\n"
+                       "        getbitm\n"
+                       "        j%c      c, contie\n"
+                       "        dec     c\n"
+                       "levale: add     a, a\n"
+                       "        rl      c\n"
+                       "        rl      b\n"
+                       "        getbitm\n"
+                       "        jr      nc, levale\n"
+                       "        inc     c\n"
+                       "        jr      z, exitdz\n"
+                       "contie: ld      e, (hl)\n", speed==2 ? 'r' : 'p');
+    fprintf(ofp,       "        %sc     hl\n"
+                       "        defb    203, 51\n" // sll e
+                       "        jr      nc, offnd%c\n", back?"de":"in", type&1?'o':'e');
+    for ( i=8; i<off_bits-1; i++ ){
+      if( (i^type)&1 )
+        fprintf(ofp,   "        getbitm\n");
+      else
+        fprintf(ofp,   "        add     a, a\n");
+      fprintf(ofp,     "        rl      d\n");
+    }
+    if( (i^type)&1 )
+      fprintf(ofp,     "        getbitm\n");
+    else
+      fprintf(ofp,     "        add     a, a\n");
+    fprintf(ofp,       "        ccf\n"
+                       "        jr      c, offnd%c\n"
+                       "        inc     d\n"
+                       "offnd%c: rr      e\n"
+                       "        ex      (sp), hl\n",
+                        (off_bits^type)&1?'o':'e', (off_bits^type)&1?'o':'e');
     if( back )
-      fprintf(ofp, "        ex      de, hl\n"
-               "        adc     hl, de\n"
-               "        lddr\n");
+      fprintf(ofp,     "        ex      de, hl\n"
+                       "        adc     hl, de\n"
+                       "        lddr\n");
     else
-      fprintf(ofp, "        push    hl\n"
-               "        sbc     hl, de\n"
-               "        pop     de\n"
-               "        ldir\n");
-    fprintf(ofp, "exitdz: pop     hl\n"
-               "        jr      nc, mainlo\n");
+      fprintf(ofp,     "        push    hl\n"
+                       "        sbc     hl, de\n"
+                       "        pop     de\n"
+                       "        ldir\n");
+    fprintf(ofp,       "        pop     hl\n"
+                       "        add     a, a\n");
+    if( speed>3 ){
+      if( (off_bits^type)&1 )
+        fprintf(ofp,   "        jr      z, mailao\n"
+                       "        jr      nc, copbyo\n"
+                       "        ld      c, %d\n"
+                       "        jp      maisio\n", 2-(type&1));
+      else
+        fprintf(ofp,   "        jr      nc, copbye\n"
+                       "        ld      c, %d\n"
+                       "        jp      maisie\n", 2-(type&1));
+    }
+    else{
+      if( (off_bits^type)&1 )
+        fprintf(ofp,   "        jr      z, mailao\n"
+                       "        jr      c, maicoo\n"
+                       "        j%c      copbyo\n", speed==2 ? 'r' : 'p');
+      else
+        fprintf(ofp,   "        jr      c, maicoe\n"
+                       "        j%c      copbye\n", speed==2 ? 'r' : 'p');
+    }
+    fprintf(ofp,       "exitdz: pop     hl\n");
+    if( speed==2 )
+      fprintf(ofp,     "getbit: ld      a, (hl)\n"
+                       "        %sc     hl\n"
+                       "        adc     a, a\n", back?"de":"in");
+    fprintf(ofp,       "        ret\n"
+                       "mailao: ld      a, (hl)\n"
+                       "        %sc     hl\n"
+                       "        adc     a, a\n"
+                       "        jr      nc, copbyo\n", back?"de":"in");
+    if( type&1 )
+      fprintf(ofp,     "maicoo: ld      bc, 1\n"
+                       "        push    de\n"
+                       "        ld      d, b\n"
+                       "levalo: add     a, a\n"
+                       "        rl      c\n"
+                       "        jr      z, exitdz\n"
+                       "        rl      b\n"
+                       "        getbitm\n"
+                       "        jr      nc, levalo\n"
+                       "        ld      e, (hl)\n");
+    else
+      fprintf(ofp,     "maicoo: ld      bc, 2\n"
+                       "        push    de\n"
+                       "        ld      d, b\n"
+                       "        add     a, a\n"
+                       "        j%c      c, contio\n"
+                       "        dec     c\n"
+                       "levalo: getbitm\n"
+                       "        rl      c\n"
+                       "        rl      b\n"
+                       "        add     a, a\n"
+                       "        jr      nc, levalo\n"
+                       "        inc     c\n"
+                       "        jr      z, exitdz\n"
+                       "contio: ld      e, (hl)\n", speed==2 ? 'r' : 'p');
+    fprintf(ofp,       "        %sc     hl\n"
+                       "        defb    203, 51\n" // sll e
+                       "        jr      nc, offnd%c\n", back?"de":"in", type&1?'e':'o');
+    for ( i=8; i<off_bits-1; i++ ){
+      if( (i^type)&1 )
+        fprintf(ofp,   "        add     a, a\n");
+      else
+        fprintf(ofp,   "        getbitm\n");
+      fprintf(ofp,     "        rl      d\n");
+    }
+    if( (i^type)&1 )
+      fprintf(ofp,     "        add     a, a\n");
+    else
+      fprintf(ofp,     "        getbitm\n");
+    fprintf(ofp,       "        ccf\n"
+                       "        jr      c, offnd%c\n"
+                       "        inc     d\n"
+                       "offnd%c: rr      e\n"
+                       "        ex      (sp), hl\n",
+                        (off_bits^type)&1?'e':'o', (off_bits^type)&1?'e':'o');
+    if( back )
+      fprintf(ofp,     "        ex      de, hl\n"
+                       "        adc     hl, de\n"
+                       "        lddr\n");
+    else
+      fprintf(ofp,     "        push    hl\n"
+                       "        sbc     hl, de\n"
+                       "        pop     de\n"
+                       "        ldir\n");
+    fprintf(ofp,       "        pop     hl\n"
+                       "        add     a,  a\n");
+    if( (off_bits^type)&1 )
+      fprintf(ofp,     "        jp      c, maicoe\n"
+                       "        jp      copbye\n");
+    else
+      fprintf(ofp,     "        jr      z, mailao\n"
+                       "        jr      c, maicoo\n"
+                       "        jp      copbyo\n");
   }
-  fprintf(ofp, "getbit: add     a, a\n"
-               "        ret     nz\n"
-               "        ld      a, (hl)\n"
-               "        %sc     hl\n"
-               "        adc     a, a\n"
-               "        ret\n", back?"de":"in");
   return 0;
 }
