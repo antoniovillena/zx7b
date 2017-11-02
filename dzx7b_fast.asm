@@ -22,45 +22,45 @@
       endif
     endm
 
-dzx7    ld      a, $80
-copybye ldd
-mainloe add     a, a
-        jr      z, lb1
-        jr      c, maincoo
-copybyo ldd
-        add     a, a
+dzx7:   ld      a, $80
       if speed>1
-        jr      c, maincoe
         ldd
         add     a, a
-        jr      z, lb1
-        jr      c, maincoo
+        jr      z, mailab
+        jr      c, maicoo
         ldd
         add     a, a
+        jr      c, maicoe
       endif
-        jr      nc, copybye
+copbye: ldd
+        add     a, a
+        jr      z, mailab
+        jr      c, maicoo
+copbyo: ldd
+        add     a, a
+        jr      nc, copbye
 
-maincoe ld      bc, 2
-mainsie push    de
+maicoe: ld      bc, 2
+maisie: push    de
         ld      d, b
         getbitm
       if speed=0
-        jr      c, contine
+        jr      c, contie
       else
-        jp      c, contine
+        jp      c, contie
       endif
         dec     c
-lenvale add     a, a
+levale: add     a, a
         rl      c
         rl      b
         getbitm
-        jr      nc, lenvale
+        jr      nc, levale
         inc     c
         jr      z, exitdz
-contine ld      e, (hl)
+contie: ld      e, (hl)
         dec     hl
         sll     e
-        jr      nc, offende
+        jr      nc, offnde
         add     a, a
         rl      d
         getbitm
@@ -69,9 +69,9 @@ contine ld      e, (hl)
         rl      d
         getbitm
         ccf
-        jr      c, offende
+        jr      c, offnde
         inc     d
-offende rr      e
+offnde: rr      e
         ex      (sp), hl
         ex      de, hl
         adc     hl, de
@@ -79,53 +79,53 @@ offende rr      e
         pop     hl
         add     a, a
     if speed=0
-        jr      c, maincoe
-        jr      copybye
+        jr      c, maicoe
+        jr      copbye
     else
       if speed=1
-        jr      c, maincoe
-        jp      copybye
+        jr      c, maicoe
+        jp      copbye
       else
-        jr      nc, copybye
+        jr      nc, copbye
         ld      c, 2
-        jp      mainsie
+        jp      maisie
       endif
     endif
 
-exitdz  pop     hl
+exitdz: pop     hl
       if speed=0
-getbit  ld      a, (hl)
+getbit: ld      a, (hl)
         dec     hl
         adc     a, a
       endif
         ret
 
-lb1     ld      a, (hl)
+mailab: ld      a, (hl)
         dec     hl
         adc     a, a
-        jr      nc, copybyo
+        jr      nc, copbyo
 
-maincoo ld      bc, 2
+maicoo: ld      bc, 2
         push    de
         ld      d, b
         add     a, a
       if speed=0
-        jr      c, contino
+        jr      c, contio
       else
-        jp      c, contino
+        jp      c, contio
       endif
         dec     c
-lenvalo getbitm
+levalo: getbitm
         rl      c
         rl      b
         add     a, a
-        jr      nc, lenvalo
+        jr      nc, levalo
         inc     c
         jr      z, exitdz
-contino ld      e, (hl)
+contio: ld      e, (hl)
         dec     hl
         sll     e
-        jr      nc, offendo
+        jr      nc, offndo
         getbitm
         rl      d
         add     a, a
@@ -134,15 +134,15 @@ contino ld      e, (hl)
         rl      d
         add     a, a
         ccf
-        jr      c, offendo
+        jr      c, offndo
         inc     d
-offendo rr      e
+offndo: rr      e
         ex      (sp), hl
         ex      de, hl
         adc     hl, de
         lddr
         pop     hl
         add     a,  a
-        jr      z, lb1
-        jr      c, maincoo
-        jp      copybyo
+        jr      z, mailab
+        jr      c, maicoo
+        jp      copbyo

@@ -112,8 +112,11 @@ void compress() {
       else{
         offset1-= 128;
         write_byte((offset1 & 127) | 128);
-        for ( mask= 1<<(off_bits-2); mask > 127; mask >>= 1)
-          write_bit(offset1 & mask);
+        if( off_bits==16 )
+          write_byte(offset1+128>>7);
+        else
+          for ( mask= 1<<(off_bits-2); mask > 127; mask >>= 1)
+            write_bit(offset1 & mask);
       }
     }
 
@@ -237,8 +240,9 @@ int main(int argc, char *argv[]) {
            "  <type>           Target decruncher\n"
            "  <file1..N>       Origin files\n\n"
            "Valid <type> values are: f0, f1, f2, f3, f4, b0, b1, b2, b3 and b4\n"
+           "You can attach o?g? to <type> and fix compression algorithm\n"
            "Every input file will be compressed in a .skv output file\n"
-           "It will generate the decruncher into the file d.asm\n\n"),
+           "It will generate the decruncher into the file d.asm\n"),
     exit(0);
   if( argc<3 )
     printf("\nInvalid number of parameters\n"),
@@ -256,49 +260,58 @@ int main(int argc, char *argv[]) {
       || !optimal || !min || !max )
     fprintf(stderr, "Error: Insufficient memory\n"),
     exit(1);
-  for ( off_bits= 0; off_bits<17; off_bits++ )
-    size[off_bits]= 0;
-  for (fil= 2; fil < argc; fil++) {
-    ifp= fopen(argv[fil], "rb");
-    if( !ifp )
-      fprintf(stderr, "Error: Cannot access input file %s\n", argv[1]),
-      exit(1);
-    fseek(ifp, 0L, SEEK_END);
-    input_size= ftell(ifp);
-    fseek(ifp, 0L, SEEK_SET);
-    if( !input_size )
-      fprintf(stderr, "Error: Empty input file %s\n", argv[1]),
-      exit(1);
-    total_counter= 0;
-    do {
-      partial_counter = fread(input_data+total_counter, sizeof(char), input_size-total_counter, ifp);
-      total_counter += partial_counter;
-    } while ( partial_counter > 0 );
-    if( total_counter != input_size )
-      fprintf(stderr, "Error: Cannot read input file %s\n", argv[1]),
-      exit(1);
-    fclose(ifp);
-    if (back)
-      for ( i= 0; i<input_size>>1; i++ )
-        j= input_data[i],
-        input_data[i]= input_data[input_size-1-i],
-        input_data[input_size-1-i]= j;
-    for ( off_bits= 8; off_bits<17; off_bits++ )
-      max_offset= (1<<(off_bits-1))+128,
-      max_len= off_bits==8 ? 256 : 65536,
-      eliasbits= &elias_gamma_bits1,
-      eliaswrite= &write_elias_gamma1,
-      optimize(),
-      size[off_bits-8<<1]+= optimal[input_size-1].bits+23>>3,
-      eliasbits= &elias_gamma_bits2,
-      eliaswrite= &write_elias_gamma2,
-      optimize(),
-      size[off_bits-8<<1|1]+= optimal[input_size-1].bits+23>>3;
+  if( strlen(argv[1])!=6 ){
+    printf("Searching best parameters");
+    for ( off_bits= 0; off_bits<17; off_bits++ )
+      size[off_bits]= 0;
+    for (fil= 2; fil < argc; fil++) {
+      ifp= fopen(argv[fil], "rb");
+      if( !ifp )
+        fprintf(stderr, "Error: Cannot access input file %s\n", argv[1]),
+        exit(1);
+      fseek(ifp, 0L, SEEK_END);
+      input_size= ftell(ifp);
+      fseek(ifp, 0L, SEEK_SET);
+      if( !input_size )
+        fprintf(stderr, "Error: Empty input file %s\n", argv[1]),
+        exit(1);
+      total_counter= 0;
+      do {
+        partial_counter = fread(input_data+total_counter, sizeof(char), input_size-total_counter, ifp);
+        total_counter += partial_counter;
+      } while ( partial_counter > 0 );
+      if( total_counter != input_size )
+        fprintf(stderr, "Error: Cannot read input file %s\n", argv[1]),
+        exit(1);
+      fclose(ifp);
+      if (back)
+        for ( i= 0; i<input_size>>1; i++ )
+          j= input_data[i],
+          input_data[i]= input_data[input_size-1-i],
+          input_data[input_size-1-i]= j;
+      for ( off_bits= 8; off_bits<17; off_bits++ )
+        printf("."),
+        max_offset= (1<<(off_bits-1))+128,
+        max_len= off_bits==8 ? 256 : 65536,
+        eliasbits= &elias_gamma_bits1,
+        eliaswrite= &write_elias_gamma1,
+        optimize(),
+        size[off_bits-8<<1]+= optimal[input_size-1].bits+23>>3,
+        eliasbits= &elias_gamma_bits2,
+        eliaswrite= &write_elias_gamma2,
+        optimize(),
+        size[off_bits-8<<1|1]+= optimal[input_size-1].bits+23>>3;
+    }
   }
-  for ( i= 2e9, j= 0; j<18; j++ )
-    if( i>size[j] )
-      i= size[j],
-      type= j;
+  if( strlen(argv[1])==6 )
+    type= (argv[1][3]-'0')<<1|(argv[1][5]-'0');
+  else{
+    for ( i= 2e9, j= 0; j<18; j++ )
+      if( i>size[j] )
+        i= size[j],
+        type= j;
+    printf("%c%do%dg%d choosen\n", back ? 'b' : 'f', speed, type>>1, type&1);
+  }
   off_bits= type+16>>1;
   max_offset= (1<<(off_bits-1))+128;
   max_len= off_bits==8 ? 256 : 65536;
@@ -338,13 +351,13 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Error: Cannot write output file %s\n", output_name),
       exit(1);
     fclose(ofp);
-    printf("File %s compressed from %s (%d to %d bytes)\n", output_name, argv[fil], (int) input_size, (int) output_size);
+    printf("File %s compressed (%d to %d bytes)\n", output_name, input_size, output_size);
   }
   ofp= fopen("d.asm", "wb+");
   if( !ofp )
     printf("\nCannot create d.asm file"),
     exit(-1);
-  fprintf(ofp, "; %c%d o%d g%d\n", back ? 'b' : 'f', speed, off_bits, type&1);
+  fprintf(ofp, ";%c%do%dg%d\n", back ? 'b' : 'f', speed, type>>1, type&1);
   if( speed<2 || type<2 ){
     if( type&1 || type<2 )
       fprintf(ofp,     "sauk:   ld      a, 128\n"
@@ -457,18 +470,24 @@ int main(int argc, char *argv[]) {
       fprintf(ofp,     "        ld      e, (hl)\n"
                        "        %sc     hl\n"
                        "        defb    203, 51\n" // sll e
-                       "        jr      nc, offend\n"
-                       "        ld      d, %d\n", back?"de":"in", 1<<(17-type>>1));
-      if( speed )
-        fprintf(ofp,   "nexbit: add     a, a\n"
+                       "        jr      nc, offend\n", back?"de":"in");
+      if( off_bits==16 )
+        fprintf(ofp,   "        ld      d, (hl)\n"
+                       "        %sc     hl\n"
+                       "        srl     d\n", back?"de":"in");
+      else{
+        fprintf(ofp,   "        ld      d, %d\n", 1<<(17-type>>1));
+        if( speed )
+          fprintf(ofp, "nexbit: add     a, a\n"
                        "        call    z, getbit\n");
-      else
-        fprintf(ofp,   "nexbit: call    getbit\n");
-      fprintf(ofp,     "        rl      d\n"
+        else
+          fprintf(ofp, "nexbit: call    getbit\n");
+        fprintf(ofp,   "        rl      d\n"
                        "        jr      nc, nexbit\n"
                        "        inc     d\n"
-                       "        srl     d\n"
-                       "offend: rr      e\n"
+                       "        srl     d\n");
+      }
+      fprintf(ofp,     "offend: rr      e\n"
                        "        ex      (sp), hl\n");
       if( back )
         fprintf(ofp,   "        ex      de, hl\n"
@@ -504,22 +523,22 @@ int main(int argc, char *argv[]) {
                        "        adc     a, a\n"
                        ".gb1\n", back?"de":"in");
     fprintf(ofp,       "      endm\n"
-                       "sauk:   ld      a, 128\n"
-                       "copbye: ld%c\n"
+                       "sauk:   ld      a, 128\n");
+    if( speed>3 )
+      fprintf(ofp,     "        ld%c\n"
+                       "        add     a, a\n"
+                       "        jr      z, mailao\n"
+                       "        jr      c, maicoo\n"
+                       "        ld%c\n"
+                       "        add     a, a\n"
+                       "        jr      c, maicoe\n", back?'d':'i', back?'d':'i');
+    fprintf(ofp,       "copbye: ld%c\n"
                        "        add     a, a\n"
                        "        jr      z, mailao\n"
                        "        jr      c, maicoo\n"
                        "copbyo: ld%c\n"
-                       "        add     a, a\n", back?'d':'i', back?'d':'i');
-    if( speed>3 )
-      fprintf(ofp,     "        jr      c, maicoe\n"
-                       "        ld%c\n"
                        "        add     a, a\n"
-                       "        jr      z, mailao\n"
-                       "        jr      c, maicoo\n"
-                       "        ld%c\n"
-                       "        add     a, a\n", back?'d':'i', back?'d':'i');
-    fprintf(ofp,       "        jr      nc, copbye\n");
+                       "        jr      nc, copbye\n", back?'d':'i', back?'d':'i');
     if( type&1 )
       fprintf(ofp,     "maicoe: ld      bc, 1\n"
                        "maisie: push    de\n"
@@ -548,24 +567,30 @@ int main(int argc, char *argv[]) {
                        "contie: ld      e, (hl)\n", speed==2 ? 'r' : 'p');
     fprintf(ofp,       "        %sc     hl\n"
                        "        defb    203, 51\n" // sll e
-                       "        jr      nc, offnd%c\n", back?"de":"in", type&1?'o':'e');
-    for ( i=8; i<off_bits-1; i++ ){
+                       "        j%c      nc, offnd%c\n", back?"de":"in",
+                        off_bits==15?'p':'r', type&1?'o':'e');
+    if( off_bits==16 )
+      fprintf(ofp,       "        ld      d, (hl)\n"
+                         "        %sc     hl\n"
+                         "        srl     d\n", back?"de":"in");
+    else{
+      for ( i=8; i<off_bits-1; i++ ){
+        if( (i^type)&1 )
+          fprintf(ofp,   "        getbitm\n");
+        else
+          fprintf(ofp,   "        add     a, a\n");
+        fprintf(ofp,     "        rl      d\n");
+      }
       if( (i^type)&1 )
-        fprintf(ofp,   "        getbitm\n");
+        fprintf(ofp,     "        getbitm\n");
       else
-        fprintf(ofp,   "        add     a, a\n");
-      fprintf(ofp,     "        rl      d\n");
+        fprintf(ofp,     "        add     a, a\n");
+      fprintf(ofp,       "        ccf\n"
+                         "        jr      c, offnd%c\n"
+                         "        inc     d\n", (off_bits^type)&1?'o':'e');
     }
-    if( (i^type)&1 )
-      fprintf(ofp,     "        getbitm\n");
-    else
-      fprintf(ofp,     "        add     a, a\n");
-    fprintf(ofp,       "        ccf\n"
-                       "        jr      c, offnd%c\n"
-                       "        inc     d\n"
-                       "offnd%c: rr      e\n"
-                       "        ex      (sp), hl\n",
-                        (off_bits^type)&1?'o':'e', (off_bits^type)&1?'o':'e');
+    fprintf(ofp,       "offnd%c: rr      e\n"
+                       "        ex      (sp), hl\n", (off_bits^type)&1?'o':'e');
     if( back )
       fprintf(ofp,     "        ex      de, hl\n"
                        "        adc     hl, de\n"
@@ -609,7 +634,7 @@ int main(int argc, char *argv[]) {
                        "        jr      nc, copbyo\n", back?"de":"in");
     if( type&1 )
       fprintf(ofp,     "maicoo: ld      bc, 1\n"
-                       "        push    de\n"
+                       "maisio: push    de\n"
                        "        ld      d, b\n"
                        "levalo: add     a, a\n"
                        "        rl      c\n"
@@ -620,7 +645,7 @@ int main(int argc, char *argv[]) {
                        "        ld      e, (hl)\n");
     else
       fprintf(ofp,     "maicoo: ld      bc, 2\n"
-                       "        push    de\n"
+                       "maisio: push    de\n"
                        "        ld      d, b\n"
                        "        add     a, a\n"
                        "        j%c      c, contio\n"
@@ -636,23 +661,28 @@ int main(int argc, char *argv[]) {
     fprintf(ofp,       "        %sc     hl\n"
                        "        defb    203, 51\n" // sll e
                        "        jr      nc, offnd%c\n", back?"de":"in", type&1?'e':'o');
-    for ( i=8; i<off_bits-1; i++ ){
+    if( off_bits==16 )
+      fprintf(ofp,       "        ld      d, (hl)\n"
+                         "        %sc     hl\n"
+                         "        srl     d\n", back?"de":"in");
+    else{
+      for ( i=8; i<off_bits-1; i++ ){
+        if( (i^type)&1 )
+          fprintf(ofp,   "        add     a, a\n");
+        else
+          fprintf(ofp,   "        getbitm\n");
+        fprintf(ofp,     "        rl      d\n");
+      }
       if( (i^type)&1 )
-        fprintf(ofp,   "        add     a, a\n");
+        fprintf(ofp,     "        add     a, a\n");
       else
-        fprintf(ofp,   "        getbitm\n");
-      fprintf(ofp,     "        rl      d\n");
+        fprintf(ofp,     "        getbitm\n");
+      fprintf(ofp,       "        ccf\n"
+                         "        jr      c, offnd%c\n"
+                         "        inc     d\n", (off_bits^type)&1?'e':'o');
     }
-    if( (i^type)&1 )
-      fprintf(ofp,     "        add     a, a\n");
-    else
-      fprintf(ofp,     "        getbitm\n");
-    fprintf(ofp,       "        ccf\n"
-                       "        jr      c, offnd%c\n"
-                       "        inc     d\n"
-                       "offnd%c: rr      e\n"
-                       "        ex      (sp), hl\n",
-                        (off_bits^type)&1?'e':'o', (off_bits^type)&1?'e':'o');
+    fprintf(ofp,       "offnd%c: rr      e\n"
+                       "        ex      (sp), hl\n", (off_bits^type)&1?'e':'o');
     if( back )
       fprintf(ofp,     "        ex      de, hl\n"
                        "        adc     hl, de\n"
