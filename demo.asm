@@ -1,4 +1,4 @@
-        output  example2.bin
+        output  demo.bin
         org     $8000
         ld      hl, data
         ld      de, $4000
