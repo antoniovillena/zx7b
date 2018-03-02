@@ -4,7 +4,7 @@
 ; Decompression code may read one longword beyond compressed data.
 ; The contents of this longword does not matter.
 ;
-; Z80 version of 262 bytes
+; Z80 version of 260 bytes
 ; roudoudou, Hicks, Antonio Villena & Urusergi
 ;
 ; usage
@@ -31,9 +31,8 @@ shrinkler_repeat:
         ld      (de), a
         xor     $80
         inc     de
-        ld      h, ($f400-shrinkler_pr)>>8
-        add     hl, de
-        jr      nc, shrinkler_repeat
+        cp      d
+        jr      nz, shrinkler_repeat
         ld      hl, $8000
         ld      sp, hl
         ex      de, hl
@@ -211,5 +210,6 @@ shrinkler_d3ret:
         exx
         ld      a, 3
         ret
+ display $-$5ccb
 data:   incbin  data.shr
 shrinkler_dr:
