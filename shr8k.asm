@@ -4,7 +4,7 @@
 ; Decompression code may read one longword beyond compressed data.
 ; The contents of this longword does not matter.
 ;
-; Z80 version of 260 bytes
+; Z80 version of 259 bytes
 ; roudoudou, Hicks, Antonio Villena & Urusergi
 ;
 ; usage
@@ -21,10 +21,9 @@
         org     $5ccb
         define  shrinkler_pr  shrinkler_dr+6
 
-l5ccb:  ld      bc, data-shrinkler_dr
-        add     ix, bc
+l5ccb:  ld      hl, $8000
+        ld      sp, hl
         defb    $de, $c0, $37, $0e, $8f, $39, $96 ; paolo ferraris method, in basic jump to $5ccb
-l5cd6:  
         di
         xor     a
 shrinkler_repeat:
@@ -33,9 +32,8 @@ shrinkler_repeat:
         inc     de
         cp      d
         jr      nz, shrinkler_repeat
-        ld      hl, $8000
-        ld      sp, hl
-        ex      de, hl
+        ld      e, l
+        ld      ix, data
 
 shrinkler_lit:
         ; Literal
