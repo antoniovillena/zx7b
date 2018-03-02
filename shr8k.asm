@@ -15,7 +15,7 @@
 ; Original demo.asm must be org $8000. You can assume SP=$8000 and HL=$0000
 ; shrinkler http://www.pouet.net/prod.php?which=64851
 ; sjasmplus https://github.com/DSkywalk/fase/blob/master/engine/src/sjasmplus/sjasmplus.exe
-; GenTape   
+; GenTape   https://github.com/antoniovillena/zx7b/blob/master/GenTape/GenTape.exe
 
         output  shr8k.bin
         org     $5ccb
