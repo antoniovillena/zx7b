@@ -4,20 +4,69 @@
 ; Decompression code may read one longword beyond compressed data.
 ; The contents of this longword does not matter.
 ;
-; official Z80 release - 273 bytes
-; Conversion by roudoudou and size optimisations by Hicks & Antonio Villena
+; official Z80 release (recall) - 254 bytes
+; Conversion by roudoudou
+; size optimisations by Hicks, Antonio Villena & Urusergi
 ;
-; IX=source
-; DE=destination
-; call shrinkler_decrunch
+; usage
+;-------
+; LD IX,source
+; LD DE,destination
+; CALL shrinkler_decrunch
 
-        ; need to be the first register
         define  shrinkler_d3  shrinkler_dr    ; defw 0
         define  shrinkler_d2  shrinkler_d3+2  ; defw 0
         define  shrinkler_d6  shrinkler_d2+2  ; defw 0
-        ; need to be the last register
         define  shrinkler_d4  shrinkler_d6+2  ; defw 0,0
         define  shrinkler_pr  shrinkler_d4+4  ; 3072 bytes buffer!!!
+
+shrinkler_decrunch:
+        ; Init range decoder state
+        ld      hl, shrinkler_dr
+        xor     a
+        ex      af, af'
+        xor     a
+        ld      bc, $070d
+        ld      (hl), 1
+shrinkler_repeat:
+        inc     hl
+        ex      af, af'
+        ld      (hl), a
+        djnz    shrinkler_repeat
+        ld      a, $80
+        dec     c
+        jr      nz, shrinkler_repeat
+
+shrinkler_lit:
+        ld      hl, shrinkler_d6
+        inc     (hl)
+shrinkler_getlit:
+        call    shrinkler_getbit
+        rl      (hl)
+        jr      nc, shrinkler_getlit
+        ldi
+        ; After literal
+        call    shrinkler_getkind
+        jr      nc, shrinkler_lit
+        ; Reference
+        call    shrinkler_altgetbit
+        jr      nc, shrinkler_readoffset
+shrinkler_readlength:
+        call    shrinkler_getnumber
+shrinkler_d5:
+        ld      hl, 0
+        add     hl, de
+        ldir
+        ; After reference
+        call    shrinkler_getkind
+        jr      nc, shrinkler_lit
+shrinkler_readoffset:
+        dec     a
+        call    shrinkler_getnumber
+        ld      hl, 2
+        sbc     hl, bc
+        ld      (shrinkler_d5+1), hl
+        jr      nz, shrinkler_readlength
 
 shrinkler_getnumber:
         ; Out: Number in BC
@@ -39,8 +88,6 @@ shrinkler_bitsloop:
         rl      c
         rl      b
         jr      shrinkler_bitsloop
-
-;--------------------------------------------------
 
 shrinkler_readbit:
         pop     de
@@ -145,54 +192,6 @@ shrinkler_one:
         ld      (bc), a
         ex      de, hl
         jr      shrinkler_d3ret
-
-shrinkler_decrunch:
-        ; Init range decoder state
-        ld      hl, shrinkler_dr
-        xor     a
-        ex      af, af'
-        xor     a
-        ld      bc, $070d
-        ld      (hl), 1
-shrinkler_repeat:
-        inc     hl
-        ex      af, af'
-        ld      (hl), a
-        djnz    shrinkler_repeat
-        ld      a, $80
-        dec     c
-        jr      nz, shrinkler_repeat
-
-shrinkler_lit:
-        ld      hl, shrinkler_d6
-        inc     (hl)
-shrinkler_getlit:
-        call    shrinkler_getbit
-        rl      (hl)
-        jr      nc, shrinkler_getlit
-        ldi
-        ; After literal
-        call    shrinkler_getkind
-        jr      nc, shrinkler_lit
-        ; Reference
-        call    shrinkler_altgetbit
-        jr      nc, shrinkler_readoffset
-shrinkler_readlength:
-        call    shrinkler_getnumber
-shrinkler_d5:
-        ld      hl, 0
-        add     hl, de
-        ldir
-        ; After reference
-        call    shrinkler_getkind
-        jr      nc, shrinkler_lit
-shrinkler_readoffset:
-        dec     a
-        call    shrinkler_getnumber
-        ld      hl, 2
-        sbc     hl, bc
-        ld      (shrinkler_d5+1), hl
-        jr      nz, shrinkler_readlength
 
 shrinkler_zero:
         ; oneprob = oneprob * (1 - adjust) = oneprob - oneprob * adjust
