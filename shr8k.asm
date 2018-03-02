@@ -4,7 +4,7 @@
 ; Decompression code may read one longword beyond compressed data.
 ; The contents of this longword does not matter.
 ;
-; Z80 version of 259 bytes
+; Z80 version of 256 bytes
 ; roudoudou, Hicks, Antonio Villena & Urusergi
 ;
 ; usage
@@ -19,20 +19,17 @@
 
         output  shr8k.bin
         org     $5ccb
-        define  shrinkler_pr  shrinkler_dr+6
+        define  shrinkler_pr  $7400
 
-l5ccb:  ld      hl, $8000
-        ld      sp, hl
-        defb    $de, $c0, $37, $0e, $8f, $39, $96 ; paolo ferraris method, in basic jump to $5ccb
+l5ccb:  ld      de, $8000
         di
-        xor     a
+        defb    $de, $c0, $37, $0e, $8f, $39, $96 ; paolo ferraris method, in basic jump to $5ccb
 shrinkler_repeat:
-        ld      (de), a
-        xor     $80
-        inc     de
-        cp      d
-        jr      nz, shrinkler_repeat
-        ld      e, l
+        push    de
+        ld      h, $8c
+        add     hl, sp
+        jr      c, shrinkler_repeat
+        ld      sp, $7ffe
         ld      ix, data
 
 shrinkler_lit:
@@ -66,8 +63,27 @@ shrinkler_readoffset:
         sbc     hl, bc
         ld      (shrinkler_d5+1), hl
         jr      nz, shrinkler_readlength
-        add     hl, sp
-        jp      (hl)
+
+shrinkler_getnumber:
+        ; Out: Number in BC
+        ld      bc, 1
+        ld      hl, shrinkler_d6+2
+        ld      (hl), a
+        dec     hl
+        ld      (hl), c
+shrinkler_numberloop:
+        inc     (hl)
+        call    shrinkler_getbit
+        inc     (hl)
+        jr      c, shrinkler_numberloop
+shrinkler_bitsloop:
+        dec     (hl)
+        dec     (hl)
+        ret     m
+        call    shrinkler_getbit
+        rl      c
+        rl      b
+        jr      shrinkler_bitsloop
 
 ;--------------------------------------------------
         ; Out: Bit in C
@@ -102,27 +118,6 @@ shrinkler_d2:
         adc     hl, hl
         ld      (shrinkler_d2+1), hl
         jr      shrinkler_getbit1
-
-shrinkler_getnumber:
-        ; Out: Number in BC
-        ld      bc, 1
-        ld      hl, shrinkler_d6+2
-        ld      (hl), a
-        dec     hl
-        ld      (hl), c
-shrinkler_numberloop:
-        inc     (hl)
-        call    shrinkler_getbit
-        inc     (hl)
-        jr      c, shrinkler_numberloop
-shrinkler_bitsloop:
-        dec     (hl)
-        dec     (hl)
-        ret     m
-        call    shrinkler_getbit
-        rl      c
-        rl      b
-        jr      shrinkler_bitsloop
 
 ;--------------------------------------------------
 shrinkler_getkind:
@@ -208,6 +203,4 @@ shrinkler_d3ret:
         exx
         ld      a, 3
         ret
- display $-$5ccb
 data:   incbin  data.shr
-shrinkler_dr:

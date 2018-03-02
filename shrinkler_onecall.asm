@@ -60,6 +60,27 @@ shrinkler_readoffset:
         ld      (shrinkler_d5+1), hl
         jr      nz, shrinkler_readlength
 
+shrinkler_getnumber:
+        ; Out: Number in BC
+        ld      bc, 1
+        ld      hl, shrinkler_d6+2
+        ld      (hl), a
+        dec     hl
+        ld      (hl), c
+shrinkler_numberloop:
+        inc     (hl)
+        call    shrinkler_getbit
+        inc     (hl)
+        jr      c, shrinkler_numberloop
+shrinkler_bitsloop:
+        dec     (hl)
+        dec     (hl)
+        ret     m
+        call    shrinkler_getbit
+        rl      c
+        rl      b
+        jr      shrinkler_bitsloop
+
         ; Out: Bit in C
 shrinkler_readbit:
         ld      (shrinkler_d3+1), hl
@@ -176,24 +197,3 @@ shrinkler_d3ret:
         exx
         ld      a, 3
         ret
-
-shrinkler_getnumber:
-        ; Out: Number in BC
-        ld      bc, 1
-        ld      hl, shrinkler_d6+2
-        ld      (hl), a
-        dec     hl
-        ld      (hl), c
-shrinkler_numberloop:
-        inc     (hl)
-        call    shrinkler_getbit
-        inc     (hl)
-        jr      c, shrinkler_numberloop
-shrinkler_bitsloop:
-        dec     (hl)
-        dec     (hl)
-        ret     m
-        call    shrinkler_getbit
-        rl      c
-        rl      b
-        jr      shrinkler_bitsloop
