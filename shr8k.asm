@@ -4,7 +4,7 @@
 ; Decompression code may read one longword beyond compressed data.
 ; The contents of this longword does not matter.
 ;
-; Z80 version of 263 bytes
+; Z80 version of 262 bytes
 ; roudoudou, Hicks, Antonio Villena & Urusergi
 ;
 ; usage
@@ -12,7 +12,7 @@
 ; sjasmplus demo.asm
 ; shr8k demo.bin demo.tap DEMO
 ; 
-; Original demo.asm must be org $8000. You can assume SP=$8000 and HL=$0000
+; Original demo.asm must be org $8000. You can assume SP=$8000, HL=$8000 A=$03
 ; shrinkler http://www.pouet.net/prod.php?which=64851
 ; sjasmplus https://github.com/DSkywalk/fase/blob/master/engine/src/sjasmplus/sjasmplus.exe
 ; GenTape   https://github.com/antoniovillena/zx7b/blob/master/GenTape/GenTape.exe
@@ -69,7 +69,8 @@ shrinkler_readoffset:
         sbc     hl, bc
         ld      (shrinkler_d5+1), hl
         jr      nz, shrinkler_readlength
-        jp      $8000
+        add     hl, sp
+        jp      (hl)
 
 ;--------------------------------------------------
         ; Out: Bit in C
