@@ -53,7 +53,7 @@ alice32k   249719379  5378511  4189855  3614393  3230255  2550243  2654236
 128rom16k  197319929  3571407  2292945  1550682  1407478  1392317  1180569
 128rom32k  394594060  7355277  4583902  3107867  2825773  1926027  2381847
 --------------------------------------------------------------------------
-routine size     288      201      197      168      244     ~200      191
+routine size     245      201      197      168      244     ~200      191
 
 saukav is a generalization for zx7b algorithm. If you are a experienced
 user I recommend to read saukav.txt and use saukav.c/exe in this folder.
