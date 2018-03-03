@@ -14,15 +14,16 @@
 ; LD DE,destination
 ; CALL shrinkler_decrunch
 
-        define  shrinkler_d3  shrinkler_dr    ; defw 0
+        define  shrinkler_d5  shrinkler_dr
+        define  shrinkler_d3  shrinkler_d5+2  ; defw 0
         define  shrinkler_d2  shrinkler_d3+2  ; defw 0
         define  shrinkler_d6  shrinkler_d2+2  ; defw 0
         define  shrinkler_d4  shrinkler_d6+2  ; defw 0,0
         define  shrinkler_pr  shrinkler_d4+4  ; 3072 bytes buffer!!!
-
+        
 shrinkler_decrunch:
         ; Init range decoder state
-        ld      hl, shrinkler_dr
+        ld      hl, shrinkler_dr+2
         xor     a
         ex      af, af'
         xor     a
@@ -53,8 +54,7 @@ shrinkler_getlit:
         jr      nc, shrinkler_readoffset
 shrinkler_readlength:
         call    shrinkler_getnumber
-shrinkler_d5:
-        ld      hl, 0
+        ld      hl, (shrinkler_d5)
         add     hl, de
         ldir
         ; After reference
@@ -65,7 +65,7 @@ shrinkler_readoffset:
         call    shrinkler_getnumber
         ld      hl, 2
         sbc     hl, bc
-        ld      (shrinkler_d5+1), hl
+        ld      (shrinkler_d5), hl
         jr      nz, shrinkler_readlength
 
 shrinkler_getnumber:
@@ -142,7 +142,7 @@ shrinkler_getbit1:
         jr      nc, shrinkler_readbit
         ld      hl, (shrinkler_d6)
         add     hl, hl
-        ld      de, shrinkler_pr+2      ; cause -1 context
+        ld      de, shrinkler_pr+4      ; cause -1 context
         add     hl, de
         ld      e, (hl)
         inc     hl
