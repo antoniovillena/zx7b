@@ -236,7 +236,6 @@ int main(int argc, char *argv[]) {
   if( argc==1 )
     printf("\nsaukav compressor v1.00 by Einar Saukas/AntonioVillena, 1 Nov 2017\n\n"
            "  saukav <type> <file1> <file2> .. <fileN>\n\n"
-           "  zx7b <input_file> <output_file>\n\n"
            "  <type>           Target decruncher\n"
            "  <file1..N>       Origin files\n\n"
            "Valid <type> values are: f0, f1, f2, f3, f4, b0, b1, b2, b3 and b4\n"
