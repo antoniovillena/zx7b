@@ -27,16 +27,16 @@ routine size      64       67      156      177      191
 The next one compares compression ratio with other algorithms.
 Numbers are filesizes in bytes.
 
-Size    Shrinkler Exomizer   apcLib   saukav     zx7b  BBuster 
-lena1k        776      812      864      873      902      905
-lena16k     13796    13581    14486    14649    14689    14798
-lena32k     28368    28019    29715    30071    30272    30446
-alice1k       548      613      607      611      631      636
-alice16k     6872     7266     7397     7738     8175     8429
-alice32k    12868    13461    13938    14535    16074    16570
-128rom1k      840      884      886      913      923      925
-128rom16k   11848    12260    12340    12728    12806    12882
-128rom32k   23648    24415    24572    26157    26524    26708
+Size    Shrinkler Exomizer   apcLib   saukav     zx7b  BBuster      ZX0
+lena1k        776      812      864      873      902      905      855
+lena16k     13796    13581    14486    14649    14689    14798    14352
+lena32k     28368    28019    29715    30071    30272    30446    29457
+alice1k       548      613      607      611      631      636      608
+alice16k     6872     7266     7397     7738     8175     8429     7555
+alice32k    12868    13461    13938    14535    16074    16570    14329
+128rom1k      840      884      886      913      923      925      875
+128rom16k   11848    12260    12340    12728    12806    12882    12287
+128rom32k   23648    24415    24572    26157    26524    26708    24549
 
 This last table compares speed with other algorithms.
 Numbers are execution cycles.
